@@ -150,8 +150,12 @@ class BaseLM(LM):
     def device(self):
         pass
 
+    @property
+    def fixed_length(self):
+        return False
+
     @abstractmethod
-    def tok_encode(self, string: str):
+    def tok_encode(self, string: str, padding=False):
         pass
 
     @abstractmethod
@@ -203,8 +207,13 @@ class BaseLM(LM):
         if n_spaces > 0:
             continuation = context[-n_spaces:] + continuation
             context = context[:-n_spaces]
-        whole_enc = self.tok_encode(context + continuation)
-        context_enc = self.tok_encode(context)
+        if self.fixed_length:
+            # Do not apply padding to be able to cut the continuation
+            whole_enc = self.tok_encode(context + continuation, padding=False)
+            context_enc = self.tok_encode(context, padding=False)
+        else:
+            whole_enc = self.tok_encode(context + continuation)
+            context_enc = self.tok_encode(context)
         context_enc_len = len(context_enc)
         continuation_enc = whole_enc[context_enc_len:]
         return context_enc, continuation_enc
@@ -316,7 +325,7 @@ class BaseLM(LM):
             cont_toks_list = []
             inplens = []
 
-            padding_length = None
+            padding_length = self.max_length if self.fixed_length else None
 
             # because vectorizing is annoying, we first convert each (context, continuation) pair to padded
             # tensors, then we pack them together into a batch, call the model, and then pick it all apart

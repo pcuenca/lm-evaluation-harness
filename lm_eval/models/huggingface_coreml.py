@@ -48,6 +48,7 @@ class HuggingFaceCoreMLLM(BaseLM):
             tokenizer=tokenizer,
         )
         self.tokenizer.model_max_length = self.max_length
+        self.tokenizer.pad_token_id = 0
 
     def _create_auto_tokenizer(
         self,
@@ -103,8 +104,13 @@ class HuggingFaceCoreMLLM(BaseLM):
     def requires_attention(self):
         return "attention_mask" in self.model.input_description
 
-    def tok_encode(self, string: str) -> TokenSequence:
-        return self.tokenizer.encode(string)
+    @property
+    def fixed_length(self):
+        # We currently don't support flexible shapes in Core ML
+        return True
+
+    def tok_encode(self, string: str, padding: bool) -> TokenSequence:
+        return self.tokenizer.encode(string, padding="max_length" if padding else False)
 
     def tok_encode_batch(self, strings: List[str]) -> TokenSequence:
         return self.tokenizer(
@@ -119,7 +125,9 @@ class HuggingFaceCoreMLLM(BaseLM):
     def _model_call(self, inputs) -> TokenSequence:
         ml_inputs = { "input_ids": inputs.numpy().astype(np.int32) }
         if self.requires_attention:
-            ml_inputs["attention_mask"] = np.ones(inputs.shape, np.int32)
+            # TODO: test with normal padding token too, not 0
+            attention_mask = (inputs != 0).int()
+            ml_inputs["attention_mask"] = attention_mask.numpy()
         logits = self.model.predict(ml_inputs)["logits"]
         return torch.tensor(logits)
 
