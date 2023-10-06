@@ -40,7 +40,7 @@ class HuggingFaceCoreMLLM(BaseLM):
 
         # TODO: snapshot_download from the hub if it's remote
         # TODO: make compute_units configurable
-        self.model = ct.models.MLModel(pretrained, compute_units=ct.ComputeUnit.ALL)
+        self.model = ct.models.MLModel(pretrained, compute_units=ct.ComputeUnit.CPU_AND_GPU)
         original_pretrained = self.model.user_defined_metadata["co.huggingface.exporters.name"]
 
         self.tokenizer = self._create_auto_tokenizer(
